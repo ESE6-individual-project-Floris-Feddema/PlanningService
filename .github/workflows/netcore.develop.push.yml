@@ -33,6 +33,7 @@ jobs:
       - name: Test
         run: dotnet test
   deliver:
+    needs: build
     runs-on: ubuntu-18.04
 
     steps:
