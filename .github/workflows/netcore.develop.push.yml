@@ -1,0 +1,60 @@
+name: .NET Core push on develop branch
+
+on:
+  push:
+    branches: [develop]
+
+env:
+  AZURE_FUNCTIONAPP_NAME: plandar-planning  # set this to your application's name
+  AZURE_FUNCTIONAPP_PACKAGE_PATH: '.'    # set this to the path to your web app project, defaults to the repository root
+  DOTNET_VERSION: '3.1.201'              # set this to the dotnet version to use
+
+jobs:
+  build:
+    # The virtual machine that will be used on GitHub
+    runs-on: ubuntu-18.04
+    
+    # Run the steps in a Docker container on the virtual machine
+    container:
+      image: mcr.microsoft.com/dotnet/core/sdk:3.1.201-bionic
+    steps:
+      # Checkout Git repository
+      - uses: actions/checkout@v2
+
+      # Install the dependencies needed for the project
+      - name: Install dependencies
+        run: dotnet restore
+      
+      # Build the project
+      - name: Build
+        run: dotnet build
+      
+      # Test the project
+      - name: Test
+        run: dotnet test
+  deliver:
+    runs-on: ubuntu-18.04
+
+    steps:
+      - name: 'Checkout GitHub Action'
+        uses: actions/checkout@v2
+
+      - name: Setup DotNet ${{ env.DOTNET_VERSION }} Environment
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: 'Resolve Project Dependencies Using Dotnet'
+        shell: bash
+        run: |
+          pushd './${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
+          dotnet build --configuration Release --output ./output
+          popd
+
+      - name: 'Run Azure Functions Action'
+        uses: Azure/functions-action@v1
+        id: fa
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}/output'
+          publish-profile: ${{ secrets.SCM_CREDENTIALS }}
