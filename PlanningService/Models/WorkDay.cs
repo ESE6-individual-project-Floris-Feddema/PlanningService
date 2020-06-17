@@ -2,11 +2,11 @@
 using System.Collections.Generic;
 using System.Text;
 
-namespace PlanningService
+namespace PlanningService.Models
 {
-    public class Planning
+    public class WorkDay
     {
         public Guid id { get; set; }
-        public string Name { get; set; }
+        public DateTime Date { get; set; }
     }
 }
