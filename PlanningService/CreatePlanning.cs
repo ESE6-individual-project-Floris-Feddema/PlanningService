@@ -1,11 +1,12 @@
 using System;
 using System.IO;
+using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Azure.WebJobs;
 using Microsoft.Azure.WebJobs.Extensions.Http;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.AspNetCore.Http;
 using Newtonsoft.Json;
 
 namespace PlanningService
@@ -14,23 +15,27 @@ namespace PlanningService
     {
         [FunctionName("CreatePlanning")]
         public static async Task<IActionResult> Run(
-            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "CreatePlanning")] 
+            [HttpTrigger(AuthorizationLevel.Anonymous, "post", Route = "Planning")] 
             HttpRequest req,
+            [CosmosDB(
+                databaseName: "PlanningStore",
+                collectionName: "Plannings",
+                ConnectionStringSetting = "PlanningDB")]IAsyncCollector<Planning> plannings,
             ILogger log)
         {
-            log.LogInformation("C# HTTP trigger function processed a request.");
-
-            string name = req.Query["name"];
-
-            string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            dynamic data = JsonConvert.DeserializeObject(requestBody);
-            name = name ?? data?.name;
-
-            string responseMessage = string.IsNullOrEmpty(name)
-                ? "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response."
-                : $"Hello, {name}. This HTTP triggered function executed successfully.";
-
-            return new OkObjectResult(responseMessage);
+            try
+            {
+                var requestBody = await new StreamReader(req.Body).ReadToEndAsync();
+                var data = JsonConvert.DeserializeObject<Planning>(requestBody);
+                data.id = Guid.NewGuid();
+                await plannings.AddAsync(data);
+                return new OkObjectResult(data);
+            }
+            catch (Exception e)
+            {
+               log.LogError(e.Message);
+            }
+            return new OkResult();
         }
     }
 }
